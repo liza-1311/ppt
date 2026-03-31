@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="slides-format" content="viewport">
+    <title>VeriQuest – AI Agent for Design Verification | VeriFast Technologies</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style type="text/tailwindcss">
+        @theme {
+            --color-bg: #080d1a;
+            --color-bg-deep: #03060f;
+            --color-surface: #0f1829;
+            --color-text: #f0f4ff;
+            --color-text-secondary: #b8c8e8;
+            --color-text-muted: #6b82a8;
+            --color-accent-1: #e8383a;
+            --color-accent-2: #ff7b44;
+            --color-accent-3: #ffd060;
+            --color-glass-bg: rgba(255,255,255,0.05);
+            --color-glass-border: rgba(255,255,255,0.09);
+            --color-vignette: rgba(0,0,0,0.5);
+            --font-display: 'Instrument Serif', Georgia, serif;
+            --font-body: 'Inter', system-ui, sans-serif;
+        }
+    </style>
+    <style>
+        :root { --color-bg: #080d1a; --color-text: #f0f4ff; --glow-color-rgb: 232,56,58; }
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body { background: var(--color-bg); margin: 0; }
+        body { font-family: var(--font-body); color: var(--color-text); overflow: hidden; height: 100vh; width: 100vw; }
+        .deck { width: 100vw; height: 100vh; position: relative; }
+        .slide { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--color-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; transform: scale(0.95); transition: opacity 0.7s ease, transform 0.7s ease; pointer-events: none; overflow: hidden; }
+        .slide.active { opacity: 1; transform: scale(1); pointer-events: all; }
+        .slide > .content { position: relative; z-index: 2; width: 100%; max-width: 1100px; padding: clamp(1.5rem, 4vw, 3.5rem); }
+        .nav-controls { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; z-index: 100; background: rgba(255,255,255,0.05); backdrop-filter: blur(12px); padding: 10px 24px; border-radius: 40px; border: 1px solid rgba(255,255,255,0.09); }
+        .nav-btn { width: 40px; height: 40px; border: none; background: rgba(232,56,58,0.15); color: #e8383a; border-radius: 50%; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.3s; }
+        .nav-btn:hover { background: rgba(232,56,58,0.3); }
+        .slide-dots { display: flex; gap: 8px; }
+        .slide-dots .dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.18); cursor: pointer; transition: background 0.3s, transform 0.3s; }
+        .slide-dots .dot.active { background: #e8383a; transform: scale(1.3); }
+        .slide-counter { font-size: 0.8rem; color: #6b82a8; min-width: 40px; text-align: center; }
+        .reveal { opacity: 0; transform: translateY(20px); }
+
+        @keyframes float-slow { 0% { transform: translate(0,0) scale(1); } 25% { transform: translate(60px,-50px) scale(1.12); } 50% { transform: translate(-40px,40px) scale(0.9); } 75% { transform: translate(50px,20px) scale(1.08); } 100% { transform: translate(0,0) scale(1); } }
+        @keyframes float-drift { 0% { transform: translate(0,0) scale(1) rotate(0deg); } 33% { transform: translate(-50px,-60px) scale(1.15) rotate(3deg); } 66% { transform: translate(40px,30px) scale(0.88) rotate(-2deg); } 100% { transform: translate(0,0) scale(1) rotate(0deg); } }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+        @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes glow-pulse { 0%,100% { text-shadow: 0 0 20px rgba(232,56,58,0.5),0 0 40px rgba(232,56,58,0.2); } 50% { text-shadow: 0 0 32px rgba(232,56,58,0.8),0 0 64px rgba(232,56,58,0.35); } }
+        @keyframes border-glow { 0%,100% { box-shadow: 0 0 0 0 rgba(232,56,58,0); } 50% { box-shadow: 0 0 20px 4px rgba(232,56,58,0.25); } }
+        .gradient-mesh { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+        .blob { position: absolute; border-radius: 50%; filter: blur(80px); animation: float-slow 10s ease-in-out infinite; }
+        .blob:nth-child(2) { animation: float-drift 14s ease-in-out infinite; }
+        .blob:nth-child(3) { animation: float-slow 18s ease-in-out infinite reverse; }
+        .slide::before { content:''; position:absolute; inset:0; z-index:1; pointer-events:none; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); background-repeat:repeat; background-size:256px 256px; opacity:0.03; mix-blend-mode:overlay; }
+        .slide::after { content:''; position:absolute; inset:0; z-index:1; pointer-events:none; background:radial-gradient(ellipse at center, transparent 50%, var(--color-vignette) 100%); }
+        .text-glow { text-shadow: 0 0 20px rgba(232,56,58,0.5), 0 0 40px rgba(232,56,58,0.2); }
+        .stat-glow { text-shadow: 0 0 30px rgba(232,56,58,0.6), 0 0 60px rgba(232,56,58,0.25); animation: glow-pulse 3s ease-in-out infinite; }
+        .glow-pulse { animation: glow-pulse 3s ease-in-out infinite; }
+        .bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #e8383a, #ff7b44); transition: width 0.8s ease; }
+        .badge-red { background: linear-gradient(135deg, #e8383a22, #e8383a44); border: 1px solid #e8383a55; color: #e8383a; border-radius: 8px; padding: 2px 10px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; display: inline-block; }
+        .badge-blue { background: linear-gradient(135deg, #3b82f622, #3b82f644); border: 1px solid #3b82f655; color: #7dd3fc; border-radius: 8px; padding: 2px 10px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; display: inline-block; }
+
+        /* Comparison side-by-side */
+        .compare-col { border-radius: 14px; padding: 1.4rem 1.6rem; }
+        .compare-manual { background: rgba(232,56,58,0.07); border: 1px solid rgba(232,56,58,0.2); }
+        .compare-agent { background: rgba(34,197,94,0.07); border: 1px solid rgba(34,197,94,0.25); }
+        .time-badge-manual { font-size: 2rem; font-weight: 900; color: #e8383a; letter-spacing: -1px; }
+        .time-badge-agent { font-size: 2rem; font-weight: 900; color: #22c55e; letter-spacing: -1px; }
+
+        /* Feature tag */
+        .phase-tag { background: linear-gradient(90deg,#7c3aed22,#06b6d422); border: 1px solid #7c3aed66; color: #c4b5fd; padding: 3px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; display: inline-block; margin-bottom: 0.5rem; }
+    </style>
+</head>
+<body>
+<div class="mouse-spotlight" style="position:fixed;inset:0;z-index:99;pointer-events:none;"></div>
+<div class="deck">
+
+  <!-- SLIDE 1: TITLE -->
+  <div class="slide slide-1 active" data-slide="1">
+    <div class="gradient-mesh">
+      <div class="blob" style="width:560px;height:560px;top:-120px;right:-120px;background:#e8383a;opacity:0.14;"></div>
+      <div class="blob" style="width:380px;height:380px;bottom:-100px;left:-80px;background:#ff7b44;opacity:0.11;"></div>
+      <div class="blob" style="width:240px;height:240px;top:38%;left:12%;background:#ffd060;opacity:0.08;"></div>
+    </div>
+    <canvas class="particle-canvas" style="position:absolute;inset:0;z-index:1;"></canvas>
+    <div class="content text-center">
+      <!-- VeriFast logo text as styled SVG-like badge -->
+      <div class="reveal" style="margin-bottom:1.4rem;display:inline-flex;align-items:center;gap:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(232,56,58,0.3);border-radius:12px;padding:8px 22px;">
+        <span style="font-size:1.05rem;font-weight:900;letter-spacing:0.04em;color:#fff;">VERI<span style="color:#e8383a;">FAST</span></span>
+        <span style="width:1px;height:20px;background:rgba(255,255,255,0.2);"></span>
+        <span style="font-size:0.72rem;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#6b82a8;">Technologies</span>
+      </div>
+      <h1 class="font-display reveal" style="font-size:clamp(3rem,7vw,5.5rem);font-weight:400;background:linear-gradient(135deg,#f0f4ff 20%,#e8383a 55%,#ff7b44 80%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.08;margin-bottom:0.6rem;letter-spacing:-1px;">VeriQuest</h1>
+      <p class="reveal" style="font-size:clamp(0.95rem,1.6vw,1.2rem);color:#b8c8e8;letter-spacing:0.18em;text-transform:uppercase;margin-bottom:1.2rem;">AI Agent for Design Verification</p>
+      <div class="reveal" style="display:inline-block;background:linear-gradient(135deg,#e8383a18,#ff7b4418);border:1px solid rgba(232,56,58,0.35);border-radius:30px;padding:10px 28px;margin-bottom:1.8rem;">
+        <span style="font-size:1.1rem;font-weight:700;font-style:italic;background:linear-gradient(90deg,#ffd060,#ff7b44);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">"Stop Searching, Start Fixing."</span>
+      </div>
+      <p class="reveal" style="font-size:clamp(0.82rem,1.3vw,0.98rem);color:#6b82a8;max-width:620px;margin:0 auto;line-height:1.65;">The industry-first CLI Agent designed to transform simulation data into actionable insights — empowering verification teams to identify, understand, and fix failures in <span style="color:#ffd060;font-weight:600;">minutes, not hours.</span></p>
+    </div>
+  </div>
+
+  <!-- SLIDE 2: THE PROBLEM -->
+  <div class="slide slide-2" data-slide="2">
+    <div class="gradient-mesh">
+      <div class="blob" style="width:400px;height:400px;top:-100px;right:-80px;background:#e8383a;opacity:0.09;"></div>
+      <div class="blob" style="width:280px;height:280px;bottom:-60px;left:-40px;background:#ff7b44;opacity:0.07;"></div>
+    </div>
+    <div class="deco-shape" data-speed="0.03" style="position:absolute;width:200px;height:200px;top:15%;right:8%;border:1px solid rgba(232,56,58,0.08);border-radius:50%;pointer-events:none;z-index:0;"></div>
+    <div class="content">
+      <div class="reveal" style="margin-bottom:1.6rem;">
+        <span class="badge-red">The Challenge</span>
+      </div>
+      <h2 class="font-display reveal" style="font-size:clamp(2.2rem,4.5vw,3.2rem);font-weight:400;margin-bottom:0.4rem;line-height:1.1;">Manual DV Workflows Are <span style="color:#e8383a;font-style:italic;">Broken</span></h2>
+      <p class="reveal" style="color:#6b82a8;font-size:0.95rem;margin-bottom:1.8rem;">Design Verification teams lose weeks fighting through logs, tickets, and specs manually.</p>
+      <div class="grid grid-cols-3 gap-5 reveal">
+        <div style="background:rgba(232,56,58,0.07);border:1px solid rgba(232,56,58,0.18);border-radius:14px;padding:1.4rem;">
+          <div style="font-size:2.2rem;margin-bottom:0.5rem;">🗂️</div>
+          <div style="font-weight:700;font-size:0.95rem;margin-bottom:0.4rem;color:#f0f4ff;">Log Overload</div>
+          <div style="font-size:0.82rem;color:#6b82a8;line-height:1.6;">Manually parsing thousands of simulation log lines takes <span style="color:#e8383a;font-weight:600;">2–3 days</span> per cycle.</div>
+        </div>
+        <div style="background:rgba(232,56,58,0.07);border:1px solid rgba(232,56,58,0.18);border-radius:14px;padding:1.4rem;">
+          <div style="font-size:2.2rem;margin-bottom:0.5rem;">🐛</div>
+          <div style="font-weight:700;font-size:0.95rem;margin-bottom:0.4rem;color:#f0f4ff;">Siloed Context</div>
+          <div style="font-size:0.82rem;color:#6b82a8;line-height:1.6;">Engineers switch between RTL code, waveforms, and logs with <span style="color:#e8383a;font-weight:600;">no unified view</span>.</div>
+        </div>
+        <div style="background:rgba(232,56,58,0.07);border:1px solid rgba(232,56,58,0.18);border-radius:14px;padding:1.4rem;">
+          <div style="font-size:2.2rem;margin-bottom:0.5rem;">📋</div>
+          <div style="font-weight:700;font-size:0.95rem;margin-bottom:0.4rem;color:#f0f4ff;">Jira Bottlenecks</div>
+          <div style="font-size:0.82rem;color:#6b82a8;line-height:1.6;">Filing detailed Jira tickets takes ~<span style="color:#e8383a;font-weight:600;">10 minutes</span> per issue — a tedious, error-prone process.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 3: WHAT IS VERIQUEST -->
+  <div class="slide slide-3" data-slide="3">
+    <div class="gradient-mesh">
+      <div class="blob" style="width:450px;height:450px;top:-80px;right:-80px;background:#e8383a;opacity:0.10;"></div>
+      <div class="blob" style="width:300px;height:300px;bottom:-70px;left:-50px;background:#3b82f6;opacity:0.08;"></div>
+    </div>
+    <canvas class="particle-canvas-ambient" style="position:absolute;inset:0;z-index:1;"></canvas>
+    <div class="content">
+      <div class="reveal" style="margin-bottom:0.8rem;">
+        <span class="badge-red">What is VeriQuest?</span>
+      </div>
+      <h2 class="font-display reveal" style="font-size:clamp(2rem,4vw,3rem);font-weight:400;margin-bottom:1rem;line-height:1.1;">Introducing <span style="background:linear-gradient(90deg,#e8383a,#ff7b44);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">VeriQuest</span> — Your CLI Verification AI</h2>
+      <div class="grid grid-cols-2 gap-6">
+        <div class="reveal">
+          <p style="font-size:0.96rem;line-height:1.72;color:#b8c8e8;margin-bottom:1rem;">VeriQuest is the <span style="color:#fff;font-weight:600;">industry-first CLI AI Agent</span> built specifically for ASIC/FPGA Design Verification teams. It sits inside your terminal and understands your chip.</p>
+          <p style="font-size:0.96rem;line-height:1.72;color:#b8c8e8;margin-bottom:1rem;">Developed by VeriFast Technologies' Systems &amp; Software team, VeriQuest transforms raw simulation data — logs, RTL, waveforms — into <span style="color:#ffd060;font-weight:600;">structured insights, root causes, and instant Jira tickets</span>.</p>
+          <div style="background:rgba(232,56,58,0.07);border-left:3px solid #e8383a;border-radius:0 10px 10px 0;padding:0.9rem 1.2rem;margin-top:1rem;">
+            <p style="font-size:0.88rem;color:#b8c8e8;line-height:1.6;font-style:italic;">"Stop Searching, Start Fixing." — VeriQuest puts you in control of every failure from the first keystroke.</p>
+          </div>
+        </div>
+        <div class="reveal">
+          <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:1.4rem;">
+            <div style="font-size:0.72rem;letter-spacing:0.14em;text-transform:uppercase;color:#6b82a8;margin-bottom:1rem;">Core Capabilities</div>
+            <div style="display:flex;flex-direction:column;gap:0.75rem;">
+              <div style="display:flex;align-items:center;gap:0.75rem;">
+                <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#e8383a,#ff7b44);display:flex;align-items:center;justify-content:center;font-size:0.85rem;flex-shrink:0;">🔍</div>
+                <div style="font-size:0.88rem;color:#b8c8e8;">Automated log parsing &amp; error clustering</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.75rem;">
+                <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#e8383a,#ff7b44);display:flex;align-items:center;justify-content:center;font-size:0.85rem;flex-shrink:0;">🧠</div>
+                <div style="font-size:0.88rem;color:#b8c8e8;">Root cause analysis with RTL code context</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.75rem;">
+                <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#e8383a,#ff7b44);display:flex;align-items:center;justify-content:center;font-size:0.85rem;flex-shrink:0;">🎯</div>
+                <div style="font-size:0.88rem;color:#b8c8e8;">Precise fix suggestions with code references</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.75rem;">
+                <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#e8383a,#ff7b44);display:flex;align-items:center;justify-content:center;font-size:0.85rem;flex-shrink:0;">📌</div>
+                <div style="font-size:0.88sm;color:#b8c8e8;">One-click Jira ticket generation</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:0.75rem;">
+                <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#e8383a,#ff7b44);display:flex;align-items:center;justify-content:center;font-size:0.85rem;flex-shrink:0;">🗃️</div>
+                <div style="font-size:0.88rem;color:#b8c8e8;">Unified RTL codebase intelligence (SV/VHDL)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 4: LOG ANALYSIS – COMPARISON -->
+  <div class="slide slide-4" data-slide="4">
+    <div class="gradient-mesh">
+      <div class="blob" style="width:400px;height:400px;top:-90px;right:-70px;background:#e8383a;opacity:0.10;"></div>
+      <div class="blob" style="width:280px;height:280px;bottom:-60px;left:-40px;background:#22c55e;opacity:0.07;"></div>
+    </div>
+    <div class="content">
+      <div class="reveal" style="margin-bottom:0.6rem;display:flex;align-items:center;gap:12px;">
+        <span class="badge-red">Feature 1</span>
+        <span style="font-size:0.78rem;color:#6b82a8;letter-spacing:0.1em;text-transform:uppercase;">Log Analysis &amp; Issue Debugging</span>
+      </div>
+      <h2 class="font-display reveal" style="font-size:clamp(1.8rem,3.5vw,2.6rem);font-weight:400;margin-bottom:1.2rem;line-height:1.1;">From <span style="color:#e8383a;">2–3 Days</span> of Manual Work to <span style="color:#22c55e;">5–10 Minutes</span></h2>
+      <div class="grid grid-cols-2 gap-5 reveal" style="margin-bottom:1rem;">
+        <div class="compare-col compare-manual">
+          <div style="font-size:0.7rem;letter-spacing:0.14em;text-transform:uppercase;color:#e8383a;margin-bottom:0.6rem;font-weight:700;">⛔ Manual</div>
+          <div class="time-badge-manual">2–3 Days</div>
+          <ul style="margin-top:0.8rem;font-size:0.85rem;color:#b8c8e8;line-height:1.8;list-style:none;padding:0;">
+            <li>❌ Manually parsing large log files</li>
+            <li>❌ Sifting through hundreds of errors</li>
+            <li>❌ Identifying root cause manually</li>
+            <li>❌ Context switching between tools</li>
+          </ul>
+        </div>
+        <div class="compare-col compare-agent">
+          <div style="font-size:0.7rem;letter-spacing:0.14em;text-transform:uppercase;color:#22c55e;margin-bottom:0.6rem;font-weight:700;">✅ VeriQuest Agent</div>
+          <div class="time-badge-agent">5–10 Min</div>
+          <ul style="margin-top:0.8rem;font-size:0.85rem;color:#b8c8e8;line-height:1.8;list-style:none;padding:0;">
+            <li>✅ Auto-parses logs &amp; clusters patterns</li>
+            <li>✅ Generates structured error summaries</li>
+            <li>✅ Root cause via log + RTL correlation</li>
+            <li>✅ Precise fixes with code references</li>
+          </ul>
+        </div>
+      </div>
+      <div class="reveal" style="background:rgba(255,208,96,0.06);border:1px solid rgba(255,208,96,0.2);border-radius:12px;padding:0.9rem 1.2rem;">
+        <p style="font-size:0.83rem;color:#b8c8e8;line-height:1.65;margin:0;"><span style="color:#ffd060;font-weight:600;">How it works:</span> VeriQuest automatically parses large-scale logs, clusters error patterns, and generates structured summaries with actionable insights in minutes. It then identifies root cause by correlating logs, RTL code, and execution flow — suggesting precise fixes with contextual code references.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 5: JIRA FILING -->
+  <div class="slide slide-5" data-slide="5">
+    <div class="gradient-mesh">
+      <div class="blob" style="width:380px;height:380px;top:-80px;right:-70px;background:#3b82f6;opacity:0.09;"></div>
+      <div class="blob" style="width:260px;height:260px;bottom:-50px;left:-40px;background:#e8383a;opacity:0.08;"></div>
+    </div>
+    <div class="deco-shape" data-speed="0.025" style="position:absolute;width:180px;height:180px;bottom:18%;right:6%;border:1px solid rgba(59,130,246,0.1);border-radius:50%;pointer-events:none;z-index:0;"></div>
+    <div class="content">
+      <div class="reveal" style="margin-bottom:0.6rem;display:flex;align-items:center;gap:12px;">
+        <span class="badge-blue">Feature 2</span>
+        <span style="font-size:0.78rem;color:#6b82a8;letter-spacing:0.1em;text-transform:uppercase;">Jira Filing</span>
+      </div>
+      <h2 class="font-display reveal" style="font-size:clamp(1.8rem,3.5vw,2.6rem);font-weight:400;margin-bottom:1.2rem;line-height:1.1;">From <span style="color:#e8383a;">~10 Minutes</span> of Manual Entry to <span style="color:#22c55e;">Seconds</span></h2>
+      <div class="grid grid-cols-2 gap-5 reveal" style="margin-bottom:1rem;">
+        <div class="compare-col compare-manual">
+          <div style="font-size:0.7rem;letter-spacing:0.14em;text-transform:uppercase;color:#e8383a;margin-bottom:0.6rem;font-weight:700;">⛔ Manual</div>
+          <div class="time-badge-manual">~10 Min</div>
+          <ul style="margin-top:0.8rem;font-size:0.85rem;color:#b8c8e8;line-height:1.8;list-style:none;padding:0;">
+            <li>❌ Manually entering ticket details</li>
+            <li>❌ Copy-pasting log snippets</li>
+            <li>❌ Time-consuming, error-prone process</li>
+            <li>❌ Inconsistent ticket quality</li>
+          </ul>
+        </div>
+        <div class="compare-col compare-agent">
+          <div style="font-size:0.7rem;letter-spacing:0.14em;text-transform:uppercase;color:#22c55e;margin-bottom:0.6rem;font-weight:700;">✅ VeriQuest Agent</div>
+          <div class="time-badge-agent">Seconds</div>
+          <ul style="margin-top:0.8rem;font-size:0.85rem;color:#b8c8e8;line-height:1.8;list-style:none;padding:0;">
+            <li>✅ Auto-generates detailed Jira tickets</li>
+            <li>✅ Includes error context &amp; root cause</li>
+            <li>✅ Attaches relevant log snippets</li>
+            <li>✅ Posts suggested fixes automatically</li>
+          </ul>
+        </div>
+      </div>
+      <div class="reveal" style="background:rgba(59,130,246,0.07);border:1px solid rgba(59,130,246,0.2);border-radius:12px;padding:0.9rem 1.2rem;">
+        <p style="font-size:0.83rem;color:#b8c8e8;line-height:1.65;margin:0;"><span style="color:#7dd3fc;font-weight:600;">Post-approval automation:</span> VeriQuest automatically creates detailed Jira tickets with complete error context, root cause analysis, relevant log excerpts, and suggested code fixes — enabling faster, standardized issue tracking across the entire verification team.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 6: UNIFIED DESIGN INTELLIGENCE -->
+  <div class="slide slide-6" data-slide="6">
+    <div class="gradient-mesh">
+      <div class="blob" style="width:450px;height:450px;top:-100px;right:-90px;background:#7c3aed;opacity:0.10;"></div>
+      <div class="blob" style="width:300px;height:300px;bottom:-70px;left:-50px;background:#06b6d4;opacity:0.08;"></div>
+      <div class="blob" style="width:200px;height:200px;top:45%;left:20%;background:#e8383a;opacity:0.06;"></div>
+    </div>
+    <canvas class="particle-canvas-ambient" style="position:absolute;inset:0;z-index:1;"></canvas>
+    <div class="content">
+      <div class="reveal" style="margin-bottom:0.6rem;">
+        <span style="background:linear-gradient(90deg,#7c3aed22,#7c3aed44);border:1px solid #7c3aed66;color:#c4b5fd;padding:3px 12px;border-radius:20px;font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;display:inline-block;">Feature 3 — Core Intelligence</span>
+      </div>
+      <h2 class="font-display reveal" style="font-size:clamp(1.8rem,3.8vw,2.8rem);font-weight:400;margin-bottom:0.5rem;line-height:1.1;">Unified Design Intelligence</h2>
+      <p class="reveal" style="font-size:0.92rem;color:#6b82a8;margin-bottom:1.4rem;">What generic AI tools can't do — VeriQuest <span style="color:#c4b5fd;">knows your chip.</span></p>
+      <div class="grid grid-cols-2 gap-5">
+        <div class="reveal" style="background:rgba(124,58,237,0.08);border:1px solid rgba(124,58,237,0.22);border-radius:14px;padding:1.4rem;">
+          <div style="font-size:1.8rem;margin-bottom:0.6rem;">🗃️</div>
+          <div style="font-weight:700;font-size:0.95rem;margin-bottom:0.5rem;color:#c4b5fd;">What it does</div>
+          <p style="font-size:0.84rem;color:#b8c8e8;line-height:1.65;">Indexes your <span style="color:#fff;font-weight:600;">entire RTL codebase</span> (SystemVerilog &amp; VHDL) alongside your waveforms and simulation logs into a unified knowledge base.</p>
+        </div>
+        <div class="reveal" style="background:rgba(6,182,212,0.08);border:1px solid rgba(6,182,212,0.22);border-radius:14px;padding:1.4rem;">
+          <div style="font-size:1.8rem;margin-bottom:0.6rem;">💡</div>
+          <div style="font-weight:700;font-size:0.95rem;margin-bottom:0.5rem;color:#67e8f9;">Value Delivered</div>
+          <p style="font-size:0.84rem;color:#b8c8e8;line-height:1.65;">The agent understands your chip's <span style="color:#fff;font-weight:600;">architecture, signals, and modules</span> — providing context-aware answers that generic AI tools simply cannot.</p>
+        </div>
+      </div>
+      <div class="reveal" style="margin-top:1rem;background:rgba(255,208,96,0.06);border:1px solid rgba(255,208,96,0.2);border-radius:12px;padding:0.9rem 1.4rem;display:flex;align-items:center;gap:1rem;">
+        <span style="font-size:1.5rem;">⚡</span>
+        <p style="font-size:0.85rem;color:#b8c8e8;line-height:1.6;margin:0;"><span style="color:#ffd060;font-weight:600;">Chip-native AI:</span> Because VeriQuest is trained on your specific codebase — not generic text — it answers questions like "Why did interface Y timeout?" with signal-level precision, not generic suggestions.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 7: PHASE 2 FUTURE – SPEC RAG -->
+  <div class="slide slide-7" data-slide="7">
+    <div class="gradient-mesh">
+      <div class="blob" style="width:420px;height:420px;top:-90px;right:-90px;background:#0ea5e9;opacity:0.09;"></div>
+      <div class="blob" style="width:300px;height:300px;bottom:-80px;left:-60px;background:#7c3aed;opacity:0.09;"></div>
+    </div>
+    <div class="deco-shape" data-speed="0.03" style="position:absolute;width:220px;height:220px;top:12%;left:5%;border:1px solid rgba(14,165,233,0.08);border-radius:50%;pointer-events:none;z-index:0;"></div>
+    <div class="content">
+      <div class="reveal" style="margin-bottom:0.6rem;">
+        <span class="phase-tag">🔮 Phase 2 — Future Feature</span>
+      </div>
+      <h2 class="font-display reveal" style="font-size:clamp(1.8rem,3.8vw,2.8rem);font-weight:400;margin-bottom:0.4rem;line-height:1.1;">Spec-Integrated Debugging <span style="font-style:italic;color:#c4b5fd;">(Spec-RAG)</span></h2>
+      <p class="reveal" style="font-size:0.92rem;color:#6b82a8;margin-bottom:1.4rem;">The AI reads your architectural specification so you don't have to.</p>
+      <div class="grid grid-cols-3 gap-4">
+        <div class="reveal" style="background:rgba(14,165,233,0.07);border:1px solid rgba(14,165,233,0.2);border-radius:14px;padding:1.2rem;">
+          <div style="font-size:1.6rem;margin-bottom:0.5rem;">📄</div>
+          <div style="font-weight:700;font-size:0.9rem;margin-bottom:0.4rem;color:#7dd3fc;">What it does</div>
+          <p style="font-size:0.82rem;color:#b8c8e8;line-height:1.6;">Connects simulation failures directly to your architectural specification documents (PDFs) using Retrieval-Augmented Generation.</p>
+        </div>
+        <div class="reveal" style="background:rgba(124,58,237,0.07);border:1px solid rgba(124,58,237,0.2);border-radius:14px;padding:1.2rem;">
+          <div style="font-size:1.6rem;margin-bottom:0.5rem;">🤖</div>
+          <div style="font-weight:700;font-size:0.9rem;margin-bottom:0.4rem;color:#c4b5fd;">How it works</div>
+          <p style="font-size:0.82rem;color:#b8c8e8;line-height:1.6;">The AI reads the spec manual for you — cross-referencing "expected behavior" from the PDF with "actual behavior" observed in simulation logs.</p>
+        </div>
+        <div class="reveal" style="background:rgba(255,208,96,0.07);border:1px solid rgba(255,208,96,0.2);border-radius:14px;padding:1.2rem;">
+          <div style="font-size:1.6rem;margin-bottom:0.5rem;">🎯</div>
+          <div style="font-weight:700;font-size:0.9rem;margin-bottom:0.4rem;color:#ffd060;">Value Delivered</div>
+          <p style="font-size:0.82rem;color:#b8c8e8;line-height:1.6;">Instantly surfaces spec vs. silicon mismatches, saving engineers hours of manual spec-diving per debug session.</p>
+        </div>
+      </div>
+      <div class="reveal" style="margin-top:1rem;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:0.9rem 1.4rem;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:1.3rem;">🛣️</span>
+        <p style="font-size:0.82rem;color:#b8c8e8;line-height:1.6;margin:0;"><span style="color:#c4b5fd;font-weight:600;">Phase 2 Roadmap:</span> Spec-RAG is the next evolution of VeriQuest. While Phase 1 connects you to RTL + logs, Phase 2 adds the specification layer — making VeriQuest a complete, closed-loop DV intelligence platform.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 8: IMPACT METRICS -->
+  <div class="slide slide-8" data-slide="8">
+    <div class="gradient-mesh">
+      <div class="blob" style="width:500px;height:500px;top:-120px;right:-100px;background:#e8383a;opacity:0.11;"></div>
+      <div class="blob" style="width:300px;height:300px;bottom:-80px;left:-60px;background:#22c55e;opacity:0.09;"></div>
+    </div>
+    <div class="content text-center">
+      <div class="reveal" style="margin-bottom:0.8rem;">
+        <span class="badge-red">Impact at a Glance</span>
+      </div>
+      <h2 class="font-display reveal" style="font-size:clamp(2rem,4vw,3rem);font-weight:400;margin-bottom:1.6rem;line-height:1.1;">VeriQuest Delivers <span style="background:linear-gradient(90deg,#e8383a,#ff7b44);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Measurable Results</span></h2>
+      <div class="grid grid-cols-3 gap-5 reveal">
+        <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.22);border-radius:16px;padding:1.6rem;">
+          <div style="font-size:2.8rem;font-weight:900;color:#22c55e;" class="stat-glow" data-count="99" data-suffix="%">99%</div>
+          <div style="font-size:0.78rem;letter-spacing:0.12em;text-transform:uppercase;color:#6b82a8;margin-top:0.5rem;">Time Saved</div>
+          <div style="font-size:0.8rem;color:#b8c8e8;margin-top:0.4rem;">Log analysis: 2–3 days → 5–10 min</div>
+        </div>
+        <div style="background:rgba(232,56,58,0.08);border:1px solid rgba(232,56,58,0.22);border-radius:16px;padding:1.6rem;">
+          <div style="font-size:2.8rem;font-weight:900;color:#e8383a;" class="stat-glow" style="animation-delay:0.5s;">~60×</div>
+          <div style="font-size:0.78rem;letter-spacing:0.12em;text-transform:uppercase;color:#6b82a8;margin-top:0.5rem;">Faster Jira Filing</div>
+          <div style="font-size:0.8rem;color:#b8c8e8;margin-top:0.4rem;">10 minutes → seconds post-approval</div>
+        </div>
+        <div style="background:rgba(255,208,96,0.08);border:1px solid rgba(255,208,96,0.22);border-radius:16px;padding:1.6rem;">
+          <div style="font-size:2.8rem;font-weight:900;color:#ffd060;">3×</div>
+          <div style="font-size:0.78rem;letter-spacing:0.12em;text-transform:uppercase;color:#6b82a8;margin-top:0.5rem;">Context Depth</div>
+          <div style="font-size:0.8rem;color:#b8c8e8;margin-top:0.4rem;">RTL + Waveforms + Logs unified</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE 9: THANK YOU -->
+  <div class="slide slide-9" data-slide="9">
+    <div class="gradient-mesh">
+      <div class="blob" style="width:600px;height:600px;top:-150px;right:-130px;background:#e8383a;opacity:0.14;"></div>
+      <div class="blob" style="width:380px;height:380px;bottom:-100px;left:-80px;background:#ff7b44;opacity:0.11;"></div>
+      <div class="blob" style="width:250px;height:250px;top:40%;left:15%;background:#ffd060;opacity:0.08;"></div>
+    </div>
+    <canvas class="particle-canvas" style="position:absolute;inset:0;z-index:1;"></canvas>
+    <div class="content text-center">
+      <div class="reveal" style="margin-bottom:1.2rem;display:inline-flex;align-items:center;gap:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(232,56,58,0.3);border-radius:12px;padding:8px 22px;">
+        <span style="font-size:1rem;font-weight:900;letter-spacing:0.04em;color:#fff;">VERI<span style="color:#e8383a;">FAST</span></span>
+        <span style="width:1px;height:18px;background:rgba(255,255,255,0.2);"></span>
+        <span style="font-size:0.7rem;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#6b82a8;">Technologies</span>
+      </div>
+      <h1 class="font-display reveal" style="font-size:clamp(2.8rem,6vw,5rem);font-weight:400;background:linear-gradient(135deg,#f0f4ff 20%,#e8383a 55%,#ff7b44 80%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.08;margin-bottom:0.6rem;letter-spacing:-1px;">Thank You</h1>
+      <p class="reveal" style="font-size:clamp(0.95rem,1.6vw,1.2rem);color:#b8c8e8;letter-spacing:0.18em;text-transform:uppercase;margin-bottom:1.4rem;">Systems &amp; Software Team — VeriQuest Demo</p>
+      <div class="reveal" style="display:inline-block;background:linear-gradient(135deg,#e8383a18,#ff7b4418);border:1px solid rgba(232,56,58,0.35);border-radius:30px;padding:10px 28px;margin-bottom:1.6rem;">
+        <span style="font-size:1.1rem;font-weight:700;font-style:italic;background:linear-gradient(90deg,#ffd060,#ff7b44);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">"Stop Searching, Start Fixing."</span>
+      </div>
+      <div class="reveal" style="display:flex;justify-content:center;gap:1rem;flex-wrap:wrap;">
+        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:0.7rem 1.4rem;font-size:0.83rem;color:#6b82a8;">📊 Log Analysis — 5–10 Min</div>
+        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:0.7rem 1.4rem;font-size:0.83rem;color:#6b82a8;">📌 Jira Filing — Seconds</div>
+        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:0.7rem 1.4rem;font-size:0.83rem;color:#6b82a8;">🧠 Unified RTL Intelligence</div>
+        <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:0.7rem 1.4rem;font-size:0.83rem;color:#6b82a8;">🔮 Spec-RAG — Phase 2</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- NAVIGATION -->
+<div class="nav-controls">
+    <button class="nav-btn" onclick="changeSlide(-1)">&#8249;</button>
+    <div class="slide-dots" id="dots"></div>
+    <button class="nav-btn" onclick="changeSlide(1)">&#8250;</button>
+    <span class="slide-counter" id="counter">1 / 9</span>
+</div>
+
+<script>
+    let current = 1;
+    const total = document.querySelectorAll('.slide').length;
+    const dotsContainer = document.getElementById('dots');
+    const counter = document.getElementById('counter');
+    for (let i = 1; i <= total; i++) { const dot = document.createElement('div'); dot.className = 'dot' + (i === 1 ? ' active' : ''); dot.onclick = () => goToSlide(i); dotsContainer.appendChild(dot); }
+    function goToSlide(n) {
+        const prev = document.querySelector('.slide.active');
+        const next = document.querySelector(`.slide[data-slide="${n}"]`);
+        if (prev) prev.classList.remove('active');
+        if (next) { next.classList.add('active'); animateSlide(next); }
+        current = n; updateNav();
+    }
+    function changeSlide(dir) { let n = current + dir; if (n < 1) n = total; if (n > total) n = 1; goToSlide(n); }
+    function updateNav() { document.querySelectorAll('.dot').forEach((d, i) => { d.classList.toggle('active', i + 1 === current); }); counter.textContent = current + ' / ' + total; }
+    document.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); changeSlide(1); } if (e.key === 'ArrowLeft') { e.preventDefault(); changeSlide(-1); } });
+    let touchStartX = 0;
+    document.addEventListener('touchstart', (e) => { touchStartX = e.touches[0].clientX; });
+    document.addEventListener('touchend', (e) => { const diff = touchStartX - e.changedTouches[0].clientX; if (Math.abs(diff) > 50) changeSlide(diff > 0 ? 1 : -1); });
+
+    function animateSlide(slide) {
+        slide.querySelectorAll('.reveal').forEach((el, i) => {
+            el.style.transition = 'none';
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            el.offsetHeight;
+            const delay = i * 0.09;
+            el.style.transition = `opacity 0.38s ease ${delay}s, transform 0.38s ease ${delay}s`;
+            el.style.opacity = '1';
+            el.style.transform = 'translateY(0px)';
+        });
+        slide.querySelectorAll('[data-count]:not(.counted)').forEach(el => {
+            el.classList.add('counted');
+            const target = parseInt(el.dataset.count);
+            const suffix = el.dataset.suffix || '', prefix = el.dataset.prefix || '';
+            let cur = 0; const step = target / 40;
+            const timer = setInterval(() => { cur += step; if (cur >= target) { cur = target; clearInterval(timer); } el.textContent = prefix + Math.round(cur).toLocaleString() + suffix; }, 30);
+        });
+        slide.querySelectorAll('.bar-fill:not(.fill-init)').forEach((bar, i) => {
+            bar.classList.add('fill-init');
+            bar.style.width = '0%'; bar.style.transition = `width 0.6s ease ${i * 0.1}s`; bar.offsetHeight; bar.style.width = bar.dataset.width + '%';
+        });
+    }
+
+    document.addEventListener('mousemove', (e) => {
+        const sp = document.querySelector('.mouse-spotlight');
+        if (sp) sp.style.background = `radial-gradient(600px circle at ${e.clientX}px ${e.clientY}px, rgba(232,56,58,0.06), transparent 40%)`;
+    });
+
+    (function() {
+        let mx = window.innerWidth/2, my = window.innerHeight/2;
+        const cx = window.innerWidth/2, cy = window.innerHeight/2;
+        document.addEventListener('mousemove', (e) => { mx = e.clientX; my = e.clientY; });
+        (function tick() {
+            const ox = (mx - cx)/cx, oy = (my - cy)/cy;
+            document.querySelectorAll('.deco-shape').forEach(s => {
+                const sp = parseFloat(s.dataset.speed) || 0.03;
+                s.style.transform = `translate(${ox*sp*100}px, ${oy*sp*100}px)`;
+            });
+            requestAnimationFrame(tick);
+        })();
+    })();
+
+    window.initParticles = function(canvas, opts) {
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+        const interactive = opts.interactive !== false;
+        const count = opts.count || (interactive ? 55 : 18);
+        let mx2 = -1000, my2 = -1000;
+        const particles = Array.from({ length: count }, () => ({
+            x: Math.random()*canvas.width, y: Math.random()*canvas.height,
+            vx: (Math.random()-0.5)*0.3, vy: (Math.random()-0.5)*0.3,
+            size: Math.random()*2.5+0.8, alpha: Math.random()*0.35+0.1
+        }));
+        if (interactive) {
+            canvas.addEventListener('mousemove', (e) => { const r = canvas.getBoundingClientRect(); mx2 = e.clientX-r.left; my2 = e.clientY-r.top; });
+            canvas.addEventListener('mouseleave', () => { mx2 = -1000; my2 = -1000; });
+        }
+        (function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                if (interactive) { const dx=p.x-mx2, dy=p.y-my2, dist=Math.sqrt(dx*dx+dy*dy); if (dist<120) { const f=(120-dist)/120*2; p.vx+=(dx/dist)*f*0.1; p.vy+=(dy/dist)*f*0.1; } }
+                p.vx*=0.98; p.vy*=0.98; p.x+=p.vx; p.y+=p.vy;
+                if (p.x<0) p.x=canvas.width; if (p.x>canvas.width) p.x=0;
+                if (p.y<0) p.y=canvas.height; if (p.y>canvas.height) p.y=0;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+                ctx.fillStyle = `rgba(232,56,58,${p.alpha})`; ctx.fill();
+            });
+            requestAnimationFrame(animate);
+        })();
+    };
+    document.querySelectorAll('.particle-canvas').forEach(c => window.initParticles(c, { interactive: true, count: 55 }));
+    document.querySelectorAll('.particle-canvas-ambient').forEach(c => window.initParticles(c, { interactive: false, count: 18 }));
+
+    try { animateSlide(document.querySelector('.slide.active')); } catch(e) {}
+</script>
+</body>
+</html>
